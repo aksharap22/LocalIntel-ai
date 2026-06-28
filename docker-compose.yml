@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./outputs:/app/outputs
+      - ./backend/localintel.db:/app/localintel.db
+    environment:
+      LOCALINTEL_DATABASE_URL: sqlite:///./localintel.db
+      LOCALINTEL_LLAMA_MODEL_PATH: /app/models/llm/model.gguf
+      LOCALINTEL_WHISPER_MODEL_PATH: /app/models/whisper/ggml-base.en.bin
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
