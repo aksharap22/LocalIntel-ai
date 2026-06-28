@@ -1,0 +1,1 @@
+"""LocalIntel AI backend package."""

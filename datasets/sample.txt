@@ -1,0 +1,4 @@
+Urgent invoice from Ada Lovelace Labs.
+
+This sample demonstrates offline local intelligence extraction for LocalIntel AI. The document includes an invoice,
+project deadline, and named entities such as Ada Lovelace and Alan Turing.
