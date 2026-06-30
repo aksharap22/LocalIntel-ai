@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     whisper_model_path: Path = Path("models/whisper/ggml-base.en.bin")
     max_upload_mb: int = 100
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origin_regex: str | None = r"https://.*\.up\.railway\.app"
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="LOCALINTEL_")
 

@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+**/node_modules/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Vite build cache (do NOT commit)
+.vite/
+**/.vite/
+frontend/node_modules/.vite/
+
+# Build outputs
+dist/
+**/dist/
+*.tsbuildinfo
+
+# Lint / type caches
+.ruff_cache/
+**/.ruff_cache/
+.mypy_cache/
+**/.mypy_cache/
+.pytest_cache/
+**/.pytest_cache/
+
+# Databases and runtime data
+*.db
+*.sqlite
+*.sqlite3
+localintel.db
+test_localintel.db
+
+# Uploaded/exported artifacts
+outputs/
+**/outputs/
+
+# Env files (ignore .env everywhere, but always allow .env.example)
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+
+# OS junk
+.DS_Store
+Thumbs.db
+.DS_Store?
+
+# Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python build
+*.egg-info/
+build/
+*.egg
+
+# Coverage / test outputs
+.coverage
+htmlcov/
+coverage/
