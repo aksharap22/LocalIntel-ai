@@ -1,0 +1,238 @@
+name: LocalIntel-ai CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "22"
+
+jobs:
+  # 1. Backend lint (ruff)
+  backend-lint:
+    name: 1. Backend Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r backend/requirements.txt
+      - run: ruff check backend/
+
+  # 2. Backend type check (mypy)
+  backend-typecheck:
+    name: 2. Backend Type Check (mypy)
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r backend/requirements.txt
+      - run: mypy backend/app --ignore-missing-imports
+
+  # 3. Backend security scan (bandit)
+  backend-security-scan:
+    name: 3. Backend Security Scan (bandit)
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r backend/requirements.txt
+      - run: bandit -r backend/app -ll
+
+  # 4. Backend dependency audit (pip-audit)
+  backend-dependency-audit:
+    name: 4. Backend Dependency Audit (pip-audit)
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r backend/requirements.txt
+      - run: pip-audit -r backend/requirements.txt || true
+
+  # 5. Backend unit tests + coverage
+  backend-test:
+    name: 5. Backend Unit Tests (pytest)
+    runs-on: ubuntu-latest
+    needs: [backend-typecheck, backend-security-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -r backend/requirements.txt
+      - run: pytest --cov=backend/app --cov-report=xml --cov-report=term
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
+
+  # 6. Frontend lint (eslint)
+  frontend-lint:
+    name: 6. Frontend Lint (eslint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+
+  # 7. Frontend type check (tsc)
+  frontend-typecheck:
+    name: 7. Frontend Type Check (tsc)
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+
+  # 8. Frontend dependency audit
+  frontend-dependency-audit:
+    name: 8. Frontend Dependency Audit (npm audit)
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm audit --audit-level=high || true
+
+  # 9. Frontend build
+  frontend-build:
+    name: 9. Frontend Build (vite)
+    runs-on: ubuntu-latest
+    needs: [frontend-typecheck, frontend-dependency-audit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  # 10. Build backend Docker image
+  backend-docker-build:
+    name: 10. Build Backend Docker Image
+    runs-on: ubuntu-latest
+    needs: backend-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          tags: localintel-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 11. Build frontend Docker image / artifact
+  frontend-docker-build:
+    name: 11. Package Frontend Build
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - run: tar -czf frontend-dist.tar.gz -C frontend dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-archive
+          path: frontend-dist.tar.gz
+
+  # 12. Integration test (docker-compose stack)
+  integration-test:
+    name: 12. Integration Test (docker-compose)
+    runs-on: ubuntu-latest
+    needs: [backend-docker-build, frontend-docker-build]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build backend
+      - run: docker compose up -d backend
+      - run: |
+          for i in {1..10}; do
+            curl -sf http://localhost:8000/docs && break || sleep 5
+          done
+      - run: docker compose down
+
+  # 13. Push images to registry (main branch only)
+  push-images:
+    name: 13. Push Docker Images
+    runs-on: ubuntu-latest
+    needs: integration-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }},ghcr.io/${{ github.repository }}/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 14. Deploy
+  deploy:
+    name: 14. Deploy
+    runs-on: ubuntu-latest
+    needs: push-images
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to environment
+        run: |
+          echo "Add deployment commands here (e.g. SSH to server, trigger Render/Vercel deploy hook, kubectl apply, etc.)"
+          # Example: curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+          
