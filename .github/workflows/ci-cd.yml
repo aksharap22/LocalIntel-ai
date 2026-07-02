@@ -231,8 +231,11 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to environment
-        run: |
-          echo "Add deployment commands here (e.g. SSH to server, trigger Render/Vercel deploy hook, kubectl apply, etc.)"
-          # Example: curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy to Railway
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
           

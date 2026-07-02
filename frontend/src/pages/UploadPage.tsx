@@ -25,8 +25,20 @@ export function UploadPage() {
       setStage("Persist");
       setRecord(processed);
       setStage("Complete");
-    } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Upload failed");
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    } catch (exc: any) {
+      if (import.meta.env.DEV) {
+        console.error("Full error:", exc);
+        console.error("Response:", exc.response);
+        console.error("Data:", exc.response?.data);
+      }
+
+      setError(
+        JSON.stringify(exc.response?.data, null, 2) ||
+        exc.message ||
+        "Upload failed"
+      );
+
       setStage("Error");
     }
   }
