@@ -2,6 +2,9 @@
 
 ## Offline Multi-Modal Intelligence Platform
 
+### Live Demo
+🚀 **Access the Live Web App:** [localintel-ai-production-e07d.up.railway.app/upload](https://localintel-ai-production-e07d.up.railway.app/upload)
+
 ### Tagline
 **Transforming Unstructured Data into Structured Intelligence — Completely Offline**
 
