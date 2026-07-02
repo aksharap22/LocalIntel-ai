@@ -112,7 +112,7 @@ backend-docker-build:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   script:
-    - docker build -t localintel-backend:$CI_COMMIT_SHA -f backend/Dockerfile .
+    - docker build -t localintel-backend:$CI_COMMIT_SHA -f backend/Dockerfile ./backend
 
 # 11. Package Frontend Build
 frontend-docker-build:
@@ -153,7 +153,7 @@ push-images:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
-    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA -t $CI_REGISTRY_IMAGE/backend:latest -f backend/Dockerfile .
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA -t $CI_REGISTRY_IMAGE/backend:latest -f backend/Dockerfile ./backend
     - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
     - docker push $CI_REGISTRY_IMAGE/backend:latest
 
