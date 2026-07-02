@@ -1,0 +1,169 @@
+stages:
+  - backend-lint
+  - backend-typecheck
+  - backend-security-scan
+  - backend-dependency-audit
+  - backend-test
+  - frontend-lint
+  - frontend-typecheck
+  - frontend-dependency-audit
+  - frontend-build
+  - backend-docker-build
+  - frontend-docker-build
+  - integration-test
+  - push-images
+  - deploy
+
+default:
+  interruptible: true
+
+# 1. Backend lint (ruff)
+backend-lint:
+  stage: backend-lint
+  image: python:3.11
+  script:
+    - pip install -r backend/requirements.txt
+    - ruff check backend/
+
+# 2. Backend type check (mypy)
+backend-typecheck:
+  stage: backend-typecheck
+  image: python:3.11
+  script:
+    - pip install -r backend/requirements.txt
+    - mypy backend/app --ignore-missing-imports
+
+# 3. Backend security scan (bandit)
+backend-security-scan:
+  stage: backend-security-scan
+  image: python:3.11
+  script:
+    - pip install -r backend/requirements.txt
+    - bandit -r backend/app -ll
+
+# 4. Backend dependency audit (pip-audit)
+backend-dependency-audit:
+  stage: backend-dependency-audit
+  image: python:3.11
+  script:
+    - pip install -r backend/requirements.txt
+    - pip-audit -r backend/requirements.txt || true
+
+# 5. Backend unit tests + coverage
+backend-test:
+  stage: backend-test
+  image: python:3.11
+  script:
+    - pip install -r backend/requirements.txt
+    - pytest --cov=backend/app --cov-report=xml --cov-report=term
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+# 6. Frontend lint (eslint)
+frontend-lint:
+  stage: frontend-lint
+  image: node:22
+  script:
+    - cd frontend
+    - npm ci
+    - npm run lint
+
+# 7. Frontend type check (tsc)
+frontend-typecheck:
+  stage: frontend-typecheck
+  image: node:22
+  script:
+    - cd frontend
+    - npm ci
+    - npm run typecheck
+
+# 8. Frontend dependency audit
+frontend-dependency-audit:
+  stage: frontend-dependency-audit
+  image: node:22
+  script:
+    - cd frontend
+    - npm ci
+    - npm audit --audit-level=high || true
+
+# 9. Frontend build
+frontend-build:
+  stage: frontend-build
+  image: node:22
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist/
+
+# 10. Build backend Docker image
+backend-docker-build:
+  stage: backend-docker-build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - docker build -t localintel-backend:$CI_COMMIT_SHA -f backend/Dockerfile .
+
+# 11. Package Frontend Build
+frontend-docker-build:
+  stage: frontend-docker-build
+  image: alpine:latest
+  script:
+    - tar -czf frontend-dist.tar.gz -C frontend dist
+  artifacts:
+    paths:
+      - frontend-dist.tar.gz
+
+# 12. Integration test (docker-compose)
+integration-test:
+  stage: integration-test
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - apk add --no-cache docker-compose
+    - docker compose build backend
+    - docker compose up -d backend
+    - sleep 10
+    - docker compose down
+
+# 13. Push Docker Images
+push-images:
+  stage: push-images
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA -t $CI_REGISTRY_IMAGE/backend:latest -f backend/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE/backend:latest
+
+# 14. Deploy
+deploy:
+  stage: deploy
+  image: node:22
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - npm install -g @railway/cli
+    - railway up --detach
+  variables:
+    RAILWAY_TOKEN: $RAILWAY_TOKEN
