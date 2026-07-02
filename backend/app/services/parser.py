@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import fitz  # type: ignore[import-untyped]
+import fitz
 from docx import Document
 
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".png", ".jpg", ".jpeg", ".wav", ".mp3", ".txt"}

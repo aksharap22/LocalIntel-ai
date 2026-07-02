@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -41,7 +42,7 @@ class ProcessedData(Base):
     priority: Mapped[str] = mapped_column(String(32), default="medium", index=True)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     extracted_text: Mapped[str] = mapped_column(Text, default="")
-    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     file: Mapped[FileRecord] = relationship(back_populates="processed_data")
@@ -63,5 +64,5 @@ class SettingRecord(Base):
     __tablename__ = "settings"
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
-    value: Mapped[dict] = mapped_column(JSON, default=dict)
+    value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

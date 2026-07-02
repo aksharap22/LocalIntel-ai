@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -6,7 +7,7 @@ import numpy as np
 from app.services.parser import clean_text
 
 
-def preprocess_image(path: Path) -> np.ndarray:
+def preprocess_image(path: Path) -> np.ndarray[Any, Any]:
     image = cv2.imread(str(path))
     if image is None:
         raise ValueError("Unable to read image")
@@ -18,7 +19,7 @@ def preprocess_image(path: Path) -> np.ndarray:
 def extract_image_text(path: Path) -> str:
     _ = preprocess_image(path)
     try:
-        from paddleocr import PaddleOCR  # type: ignore[import-untyped]
+        from paddleocr import PaddleOCR
 
         ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=False, show_log=False)
         result = ocr.ocr(str(path), cls=True)

@@ -1,6 +1,7 @@
 import csv
 import json
 from io import StringIO
+from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -8,7 +9,7 @@ from app.models.records import FileRecord
 from app.services.processor import structured_from_models
 
 
-def list_structured_records(db: Session) -> list[dict]:
+def list_structured_records(db: Session) -> list[dict[str, Any]]:
     files = (
         db.query(FileRecord)
         .options(joinedload(FileRecord.processed_data))
