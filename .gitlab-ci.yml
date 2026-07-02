@@ -1,3 +1,4 @@
+# GitLab CI/CD for LocalIntel AI
 stages:
   - backend-lint
   - backend-typecheck
